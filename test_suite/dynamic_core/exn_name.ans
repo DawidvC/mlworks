@@ -1,2 +1,2 @@
 exception Foo
-val it : string = "Foo[<TTY listener>:1,11 to 1,13]"
+val it : string = "Foo[<TTY listener>:1.11-1.13]"
