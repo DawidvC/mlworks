@@ -1,3 +1,6 @@
+structure S2A =
+  struct
+  end
 datatype node =
   Uconst of int
 val Uconst : int -> node

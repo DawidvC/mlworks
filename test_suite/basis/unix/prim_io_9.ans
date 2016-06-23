@@ -7,6 +7,7 @@ structure TextStreamIO = struct ... end
 structure BinStreamIO = struct ... end
 structure TextPrimIO = struct ... end
 structure Word8Vector = struct ... end
+structure Word8VectorSlice = struct ... end
 val it : unit = ()
 val infn : int -> string = fn
 val outfn : {buf: string, i: int, sz: int option} -> int = fn

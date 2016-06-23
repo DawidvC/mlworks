@@ -117,9 +117,7 @@
  *)
 
 require "mono_array";
-require "mono_array_slice";
 require "mono_vector";
-require "mono_vector_slice";
 require "__io";
 require "prim_io";
 require "stream_io";

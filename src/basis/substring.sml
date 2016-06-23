@@ -55,7 +55,6 @@
  *  new unit
  *
  *)
-require "string";
 
 signature SUBSTRING =
   sig
