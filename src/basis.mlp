@@ -1,9 +1,21 @@
 MLWorks 2.0
-basis.mlp 306 7
+basis.mlp 322 7
   AboutInfo 2 2
     Version 0 0
     Description 0 0
-  Files 143 0
+  Files 159 0
+    basis/__real_vector_slice.sml
+    basis/_array_ops.sml
+    basis/_vector_ops.sml
+    basis/__char_array_slice.sml
+    basis/__word8_array_slice.sml
+    basis/mono_array_slice.sml
+    basis/__char_vector_slice.sml
+    basis/__word8_vector_slice.sml
+    basis/mono_vector_slice.sml
+    basis/_slice.sml
+    basis/_array_slice.sml
+    basis/_vector_slice.sml
     basis/bit_flags.sml
     basis/__bit_flags.sml
     basis/__array.sml
@@ -129,6 +141,10 @@ basis.mlp 306 7
     basis/time.sml
     basis/timer.sml
     basis/vector.sml
+    basis/vector_slice.sml
+    basis/__vector_slice.sml
+    basis/array_slice.sml
+    basis/__array_slice.sml
     basis/word.sml
     basis/__generic_sock.sml
     basis/__host_db.sml
@@ -282,8 +298,8 @@ basis.mlp 306 7
       win_nt/windows.sml
     I386/Linux 18 1
       Library 0 0
-      win_nt/__os_exit.sml
-      win_nt/os_exit.sml
+      unix/__os_exit.sml
+      unix/os_exit.sml
       unix/platform_specific_exports.sml
       unix/__os.sml
       unix/__os_file_sys.sml

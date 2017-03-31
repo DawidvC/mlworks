@@ -102,6 +102,7 @@
 
 
 require "mono_vector";
+require "_vector_ops";
 require "__pre_basis";
 require "__word8";
 require "__string";
@@ -138,6 +139,19 @@ structure Word8Vector :> EQ_MONO_VECTOR
         then raise Subscript
       else ctoe(String.sub(v,i))
 
+    val sconcat = concat
+    local
+	structure Vec =
+	  struct
+	    type 'a elt = elem
+	    type 'a seq = vector
+	    val length = length
+	    val tabulate = tabulate
+	    val unsafeSub = sub
+	  end
+	structure Ops = VectorOps (Vec)
+    in open Ops end
+
     fun check_slice (array,i,SOME j) =
       if i < 0 orelse j < 0 orelse i + j > length array
         then raise Subscript
@@ -159,23 +173,7 @@ structure Word8Vector :> EQ_MONO_VECTOR
         String.substring(s, i, len)
       end
 
-    val concat = concat (* toplevel string concat *)
-
-    fun appi f (vector, i, j) =
-      let
-	val l = length vector
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun iterate n =
-	  if n >= l then
-	    ()
-	  else
-	    (ignore(f(n, sub(vector, n)));
-	     iterate(n+1))
-      in
-	iterate i
-      end
+    val concat = sconcat (* toplevel string concat *)
 
     fun app f vector =
       let
@@ -214,36 +212,6 @@ structure Word8Vector :> EQ_MONO_VECTOR
 	reduce(l-1, b)
       end
 
-    fun foldli f b (vector, i, j) =
-      let
-	val l = length vector
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun reduce(n, x) =
-	  if n >= len then
-	    x
-	  else
-	    reduce(n+1, f(n, sub(vector, n), x))
-      in
-	reduce(0, b)
-      end
-
-    fun foldri f b (vector, i, j) =
-      let
-	val l = length vector
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun reduce(n, x) =
-	  if n < 0 then
-	    x
-	  else
-	    reduce(n-1, f(n, sub(vector, n), x))
-      in
-	reduce(len-1, b)
-      end
-
     fun map f v =
       let
         val l = size v
@@ -264,25 +232,4 @@ structure Word8Vector :> EQ_MONO_VECTOR
         newS
       end
 
-    fun mapi f (v, s, l) =
-      let
-         val l' = check_slice (v, s, l)
-         val newS = MLWorks.Internal.Value.alloc_string (l'+1)
-         val i = ref 0
-         val _ =
-           while (!i<l') do (
-             MLWorks.Internal.Value.unsafe_string_update
-               (newS, !i,
-                Word8.toInt (
-                  f(
-                    !i + s, 
-                    Word8.fromInt(
-                      MLWorks.Internal.Value.unsafe_string_sub(v, !i+s )))));
-             i := !i + 1)
-         val _ = 
-          MLWorks.Internal.Value.unsafe_string_update(newS, l', 0)
-      in
-         newS
-      end
-    
   end

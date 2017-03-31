@@ -80,7 +80,9 @@
 require "byte";
 require "__word8";
 require "__word8_vector";
+require "__word8_vector_slice";
 require "__word8_array";
+require "__word8_array_slice";
 require "__substring";
 
 structure Byte : BYTE =
@@ -95,10 +97,10 @@ structure Byte : BYTE =
       MLWorks.Internal.Value.cast s
 
     val unpackStringVec =
-      bytesToString o Word8Vector.extract
-	
+      bytesToString o Word8VectorSlice.vector o Word8VectorSlice.slice
+
     val unpackString =
-      bytesToString o Word8Array.extract
+      bytesToString o Word8ArraySlice.vector o Word8ArraySlice.slice
 
     fun packString (a, i, ss) = 
       let

@@ -133,14 +133,15 @@ exception TerminatedStream
 exception ClosedStream;
 *)
 
-functor StreamIO(structure PrimIO : PRIM_IO
-                 structure Vector : MONO_VECTOR
-                 structure Array: MONO_ARRAY
-                 val someElem : PrimIO.elem
-               sharing type PrimIO.vector=Array.vector=Vector.vector
-               sharing type PrimIO.array=Array.array
-               sharing type Array.elem = PrimIO.elem = Vector.elem
-                 ) : STREAM_IO =
+functor StreamIO (
+    structure PrimIO : PRIM_IO
+    structure Vector : MONO_VECTOR
+    structure Array: MONO_ARRAY
+    val someElem : PrimIO.elem
+    sharing type PrimIO.vector = Array.vector = Vector.vector
+    sharing type PrimIO.array = Array.array
+    sharing type Array.elem = PrimIO.elem = Vector.elem)
+	: STREAM_IO =
  struct
     structure PrimIO=PrimIO
     type elem = PrimIO.elem
@@ -243,13 +244,24 @@ functor StreamIO(structure PrimIO : PRIM_IO
                            rest=buf'}         
                         end handle e => handler(buffer,mlOp,e))
          end
-       
+
+    fun extract (v : Vector.vector, start, len) =
+      let val l = Vector.length v
+	  val stop = case len of
+			 NONE => l
+		      |  SOME l => start + l
+      in
+	  if 0 <= start andalso start <= stop andalso stop <= l then
+	      Vector.tabulate (stop - start, fn i => Vector.sub (v, start + i))
+	  else raise Subscript
+      end
+
     fun generalizedInput (filbuf': buffer -> {eof: bool, rest: buffer}) 
 	              : instream -> vector * instream =
     let fun get(In{pos,buffer as Buf{data,...}}) =
        let val len = Vector.length data
         in if pos < len
-	    then (Vector.extract(data, pos, SOME (len - pos)),
+	    then (extract(data, pos, SOME (len - pos)),
 		  In{pos=len,buffer=buffer})
 	    else case filbuf' buffer
 		  of {eof=true,rest} => (empty,In{pos=0,buffer=rest})
@@ -342,10 +354,10 @@ functor StreamIO(structure PrimIO : PRIM_IO
     fun listInputN(In{pos,buffer as Buf{data,...}}, n) =
        let val len = Vector.length data
         in if pos + n <= len
-	        then ([Vector.extract(data,pos,SOME n)],
+	        then ([extract(data,pos,SOME n)],
                        In{pos=pos+n,buffer=buffer})
 	    else if pos < len
-		then let val hd = Vector.extract(data,pos,SOME (len-pos))
+		then let val hd = extract(data,pos,SOME (len-pos))
 		         val (tl,f') = listInputN(In{pos=len,buffer=buffer},
 						  n-(len-pos))
 		      in (hd::tl,f')
@@ -497,7 +509,7 @@ functor StreamIO(structure PrimIO : PRIM_IO
       }
 
 
-    val openStreams = ref []
+    val openStreams = ref ([]:outstream list)
 
     fun addOpenStream (s as Out{name,...}) =
           (openStreams := s :: !openStreams; s)
@@ -511,7 +523,8 @@ functor StreamIO(structure PrimIO : PRIM_IO
     fun handler(Out{name,...},function, cause) =
                      raise IO.Io{name=name,function=function,cause=cause}
 
-    val exit_function_key = ref NONE (* Handle to exit function if installed *)
+    (* Handle to exit function if installed *)
+    val exit_function_key = ref (NONE:MLWorks.Internal.Exit.key option)
 
     fun mkOutstream(w, mode) =
         let val s =
@@ -525,10 +538,16 @@ functor StreamIO(structure PrimIO : PRIM_IO
 		       writer=ref(PUTmore(PrimIO.WR{writeArr=SOME write,...})),
                         ...}) =
        let val p = !pos
+	   fun copy (src, start, stop, dst, di) =
+	     let fun loop si di =
+		   if si = stop then ()
+		   else (Array.update (dst, di, Array.sub (src, si));
+			 loop (si + 1) (di + 1))
+	     in loop start di end
+
 	   fun loop i = if i<p 
 	        then loop(i+write{buf=data,i=i,sz=SOME(p-i)}
-			  handle e => (Array.copy{src=data,si=i,len=SOME (p-i),
-						dst=data,di=0};
+			  handle e => (copy (data, i, p, data, 0);
 				       pos := p-i;
 				       raise e))
 		else ()
@@ -657,7 +676,8 @@ functor StreamIO(structure PrimIO : PRIM_IO
           val blen = Array.length data
           val p = !pos
 	  fun copy offset =
-	    (Array.copyVec {src=s, si=0, len=SOME slen, dst=data, di=offset};
+	    ((if slen = 0 then ()
+	      else Array.copyVec {src=s, dst=data, di=offset});
              pos := offset + slen)
         in if p+slen < blen
              then copy p

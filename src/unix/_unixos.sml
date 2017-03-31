@@ -172,7 +172,7 @@ struct
   end
 
   exception WouldBlock
-  val would_block_ref = env "system os unix exception Would Block"
+  val would_block_ref = (env "system os unix exception Would Block"):exn ref
   val _ = would_block_ref := WouldBlock
 
   datatype sockaddr = SOCKADDR_UNIX of string
@@ -343,6 +343,18 @@ struct
   structure IO = struct
     val close : FileSys.file_desc -> unit = MLWorks.Internal.IO.close
   end
+
+  structure Process = struct
+      datatype pid = PID of int
+      fun pidToWord (PID id) = SysWord.fromInt id
+      fun wordToPid w = PID (SysWord.toInt w)
+    end
+
+  structure ProcEnv = struct
+      type pid = Process.pid
+      val getpid' : unit -> int = env "system os unix getpid"
+      fun getpid () = Process.PID (getpid' ())
+    end
 
   val can_input : FileSys.file_desc -> int = MLWorks.Internal.IO.can_input
 

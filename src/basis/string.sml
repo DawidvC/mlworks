@@ -81,6 +81,7 @@ signature STRING =
     val sub : (string * int) -> char
     val extract : (string * int * int option) -> string 
     val concat    : string list -> string
+    val concatWith : string -> string list -> string
     val ^         : string * string -> string
     val implode   : char list -> string
     val explode : string -> char list
@@ -88,13 +89,14 @@ signature STRING =
     val compare : (string * string) -> order
     val str : char -> string
     val isPrefix : string -> string -> bool
+    val isSubstring : string -> string -> bool
+    val isSuffix : string -> string -> bool
     val substring : (string * int * int) -> string
     val fields : (char -> bool) -> string -> string list
     val tokens : (char -> bool) -> string -> string list
     val collate : (char * char -> order) -> (string * string) -> order
 
     val map  : ( char -> char) -> string -> string
-    val mapi : (int * char -> char) -> string * int * int option -> string
 
     val fromString : string -> string option
     val toString : string -> string

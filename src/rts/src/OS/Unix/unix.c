@@ -234,6 +234,7 @@
 #include <sys/types.h>		/* mode_t ... */
 #include <sys/wait.h>		
 #include <sys/stat.h>		/* mkdir, chmod, umask, S_ISDIR, ... */
+#include <linux/stat.h>         /* S_ISSOCK */
 #include <dirent.h>		/* opendir, ... etc. */
 #include <fcntl.h>		/* open, creat, O_RDONLY, ... */
 #include <sys/ioctl.h>		/* FIONREAD */
@@ -483,7 +484,7 @@ static mlval unix_connect(mlval arg)
 static mlval unix_getsockname(mlval arg)
 {
   char buffer[SOCKADDR_BUFFER];
-  int namelen = SOCKADDR_BUFFER;
+  socklen_t namelen = SOCKADDR_BUFFER;
   struct sockaddr *sa = (struct sockaddr *)buffer;
   struct sockaddr_un *un = (struct sockaddr_un *)buffer;
   mlval result;
@@ -506,7 +507,7 @@ static mlval unix_getsockname(mlval arg)
 static mlval unix_getpeername(mlval arg)
 {
   char buffer[SOCKADDR_BUFFER];
-  int namelen = SOCKADDR_BUFFER;
+  socklen_t namelen = SOCKADDR_BUFFER;
   struct sockaddr *sa = (struct sockaddr *)buffer;
   struct sockaddr_un *un = (struct sockaddr_un *)buffer;
   mlval result;
@@ -529,7 +530,7 @@ static mlval unix_getpeername(mlval arg)
 static mlval unix_accept(mlval arg)
 {
   char buffer[SOCKADDR_BUFFER];
-  int namelen = SOCKADDR_BUFFER, s;
+  socklen_t namelen = SOCKADDR_BUFFER, s;
   struct sockaddr *sa = (struct sockaddr *)buffer;
   struct sockaddr_un *un = (struct sockaddr_un *)buffer;
   mlval ml_sockaddr, result;
@@ -1528,6 +1529,12 @@ static mlval unix_kill(mlval arg)
   return MLUNIT;
 }
 
+static mlval unix_getpid(mlval arg)
+{
+  pid_t pid = getpid ();
+  return MLINT(pid);
+}
+
 /*
  * OS.Process.terminate: Word32.word -> 'a
  */
@@ -1693,6 +1700,7 @@ extern void unix_init(void)
   env_function("system os unix getpwnam", unix_getpwnam);
   env_function("system os unix password_file", unix_password_file);
   env_function("system os unix kill", unix_kill);
+  env_function("system os unix getpid", unix_getpid);
 
   env_function("system os unix pipe", unix_pipe);
 

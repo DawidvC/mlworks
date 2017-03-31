@@ -58,6 +58,9 @@
  *)
 
 require "array";
+require "_array_ops";
+require "__vector";
+require "__vector_slice";
 
 structure Array : ARRAY =
   struct
@@ -92,11 +95,35 @@ structure Array : ARRAY =
 
     fun array (n,i) = 
       MLWorks.Internal.Array.array (check_size n,i)
-    fun tabulate (n,f) = 
+    fun tabulate (n,f) =
       MLWorks.Internal.Array.tabulate (check_size n,f)
 
     val sub = MLWorks.Internal.Array.sub
     val update = MLWorks.Internal.Array.update
+
+    local
+	structure V = Vector
+	structure I = MLWorks.Internal.Value
+	structure Arr =
+	  struct
+	    type 'a array = 'a array
+	    val length = length
+	    val tabulate = tabulate
+	    val array = array
+	    val unsafeSub =  I.unsafe_array_sub
+	    val unsafeUpdate = I.unsafe_array_update
+	  end
+	structure Vec =
+	  struct
+	    val tabulate = V.tabulate
+	    val unsafeSub = I.unsafe_record_sub
+	  end
+	structure Ops = ArrayOps (type 'a elt = 'a
+				  type 'a vector = 'a V.vector
+				  structure Arr = Arr
+				  structure Vec = Vec
+				  structure VecSlice = VectorSlice)
+    in open Ops end
 
     fun extract(array, i, j) =
       let
@@ -105,19 +132,12 @@ structure Array : ARRAY =
         MLWorks.Internal.Vector.tabulate(len, fn n => sub (array, n+i))
       end
 
-    fun copy {src, si, len, dst, di} =
-      let
-	val len = check_slice (src,si,len)
-      in
-	MLWorks.Internal.ExtendedArray.copy(src, si, si+len, dst, di)
-      end
+    fun copy {src, dst, di} =
+      MLWorks.Internal.ExtendedArray.copy(src, 0, length src, dst, di)
 
-    fun copyVec{src : 'a vector, si : int, len, dst : 'a array, di : int} =
+    fun copyVec {src : 'a vector, dst : 'a array, di : int} =
       let
-	val len = case len of
-	  SOME len => len
-	| NONE => MLWorks.Internal.Vector.length src-si
-
+	val len = MLWorks.Internal.Vector.length src
 	fun copy (from, start, finish, to, start') =
 	  let
 	    val l1 = MLWorks.Internal.Vector.length from
@@ -142,52 +162,14 @@ structure Array : ARRAY =
 	      end
 	  end
       in
-	copy(src, si, si+len, dst, di)
+	copy (src, 0, len, dst, di)
       end
 
     val app = MLWorks.Internal.ExtendedArray.iterate
 
-    fun appi f (array, i, j) =
-      let
-        val len = check_slice (array,i,j)
-	fun iterate' n =
-	  if n >= i + len then
-	    ()
-	  else
-	    (ignore(f (n, sub (array, n)));
-	     iterate'(n+1))
-      in
-	iterate' i
-      end
-
     val foldl = fn f => fn b => fn array => MLWorks.Internal.ExtendedArray.reducel (fn (a, b) => f (b, a)) (b, array)
 
     val foldr = fn f => fn b => fn array => MLWorks.Internal.ExtendedArray.reducer f (array, b)
-
-    fun foldli f b (array, i, j) =
-      let
-	val l = length array
-        val len = check_slice (array,i,j)
-	fun reduce (n, x) =
-	  if n = i + len then
-	    x
-	  else
-	    reduce(n + 1, f(n, sub(array, n), x))
-      in
-	reduce(i, b)
-      end
-
-    fun foldri f b (array, i, j) =
-      let
-        val len = check_slice (array,i,j)
-	fun reduce (n, x) =
-	  if n < i then
-	    x
-	  else
-	    reduce(n-1, f(n, sub(array, n), x))
-      in
-	reduce(i + len-1, b)
-      end
 
     fun modify f array =
       let
@@ -197,18 +179,6 @@ structure Array : ARRAY =
 	    ()
 	  else
 	    (update(array, n, f(sub(array, n)));
-	     iterate(n+1))
-      in
-	iterate 0
-      end
-
-    fun modifyi f (array, i, j) =
-      let
-        val len = check_slice (array,i,j)
-	fun iterate n =
-	  if n = len then () (* we have done *)
-	  else
-	    (update(array, i+n, f (i+n, sub (array, i+n)));
 	     iterate(n+1))
       in
 	iterate 0

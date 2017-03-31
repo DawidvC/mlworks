@@ -58,6 +58,7 @@
  *)
 
 require "vector";
+require "_vector_ops";
 
 structure Vector : VECTOR =
   struct
@@ -67,7 +68,24 @@ structure Vector : VECTOR =
 
     val maxLen = MLWorks.Internal.Vector.maxLen
     fun check_size n = if n < 0 orelse n > maxLen then raise Size else n
-    fun fromList l = 
+
+    local
+	structure I = MLWorks.Internal.Value
+	structure Vec =
+	  struct
+	    type 'a elt = 'a
+	    type 'a seq = 'a vector
+	    val length = MLWorks.Internal.Vector.length
+	    fun tabulate (size, f) =
+	      MLWorks.Internal.Vector.tabulate (check_size size, f)
+	    val unsafeSub = I.unsafe_record_sub
+	  end
+	structure Ops = VectorOps (Vec)
+    in
+    open Ops
+    end
+
+    fun fromList l =
       (ignore(check_size (length l)); MLWorks.Internal.Vector.vector l)
     fun tabulate (n,f) = MLWorks.Internal.Vector.tabulate (check_size n, f)
     val length = MLWorks.Internal.Vector.length
@@ -127,19 +145,6 @@ structure Vector : VECTOR =
           else l - i
         end
 
-    fun appi f (vector, i, j) =
-      let
-	val len = check_slice(vector, i, j)
-	fun iterate n =
-	  if n >= i+len then
-	    ()
-	  else
-	    (ignore(f(n, sub(vector, n)));
-	     iterate(n+1))
-      in
-	iterate i
-      end
-
     fun app f vector =
       let
 	val l = length vector
@@ -177,30 +182,6 @@ structure Vector : VECTOR =
 	reduce(l-1, b)
       end
 
-    fun foldli f b (vector, i, j) =
-      let
-	val len = check_slice(vector, i, j)
-	fun reduce(n, x) =
-	  if n >= len then
-	    x
-	  else
-	    reduce(n+1, f(n, sub(vector, n), x))
-      in
-	reduce(0, b)
-      end
-
-    fun foldri f b (vector, i, j) =
-      let
-	val len = check_slice (vector, i, j)
-	fun reduce(n, x) =
-	  if n < 0 then
-	    x
-	  else
-	    reduce(n-1, f(n, sub(vector, n), x))
-      in
-	reduce(len-1, b)
-      end
-
     fun map f v =
       let
         val l = length v
@@ -208,13 +189,5 @@ structure Vector : VECTOR =
       in
         tabulate (l, f')
       end
-
-   fun mapi f (v, s, l) =
-     let 
-       val l' = check_slice (v, s, l)
-       fun f' i = f (i+s, sub(v, i+s))
-     in
-       tabulate (l', f')
-     end
 
   end (* of structure Vector *)

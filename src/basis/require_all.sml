@@ -180,12 +180,17 @@ require "word";
 require "__word";
 require "__word8";
 require "mono_array";
+require "mono_array_slice";
 require "mono_array2";
 require "mono_vector";
+require "mono_vector_slice";
 require "__word8_vector";
+require "__word8_vector_slice";
 require "__word8_array";
+require "__word8_array_slice";
 require "__word8_array2";
 require "__real_vector";
+require "__real_vector_slice";
 require "__real_array";
 require "__real_array2";
 require "byte";
@@ -226,7 +231,9 @@ require "__bin_prim_io";
 require "__text_io";
 require "__bin_io";
 require "__char_vector";
+require "__char_vector_slice";
 require "__char_array";
+require "__char_array_slice";
 require "__int";
 require "__position";
 require "_prim_io";
@@ -263,6 +270,10 @@ require "__large_word";
 require "__array";
 require "__vector";
 require "__array2";
+require "vector_slice";
+require "__vector_slice";
+require "array_slice";
+require "__array_slice";
 require "sml90";
 require "__sml90";
 require "command_line";
@@ -280,14 +291,17 @@ require "__inet_sock";
 require "__unix_sock";
 
 signature ARRAY=ARRAY
+signature ARRAY_SLICE=ARRAY_SLICE
 signature ARRAY2=ARRAY2
 signature BOOL=BOOL
 signature STRING_CVT=STRING_CVT
 signature CHAR=CHAR
 signature WORD=WORD
 signature MONO_ARRAY=MONO_ARRAY
+signature MONO_ARRAY_SLICE=MONO_ARRAY_SLICE
 signature MONO_ARRAY2=MONO_ARRAY2
 signature MONO_VECTOR=MONO_VECTOR
+signature MONO_VECTOR_SLICE=MONO_VECTOR_SLICE
 signature BYTE=BYTE
 signature TIME=TIME
 signature DATE=DATE
@@ -311,6 +325,7 @@ signature STRING=STRING
 signature SUBSTRING=SUBSTRING
 signature TIMER=TIMER
 signature VECTOR=VECTOR
+signature VECTOR_SLICE=VECTOR_SLICE
 signature BIN_IO=BIN_IO
 signature TEXT_IO=TEXT_IO
 signature TEXT_STREAM_IO=TEXT_STREAM_IO
@@ -320,6 +335,7 @@ signature COMMAND_LINE=COMMAND_LINE
 signature GENERAL=GENERAL
 
 structure Array=Array
+structure ArraySlice=ArraySlice
 structure Array2=Array2
 structure BinIO=BinIO
 structure BinPrimIO=BinPrimIO
@@ -327,7 +343,9 @@ structure Bool=Bool
 structure Byte=Byte
 structure Char=Char
 structure CharArray=CharArray
+structure CharArraySlice=CharArraySlice
 structure CharVector=CharVector
+structure CharVectorSlice=CharVectorSlice
 structure Date=Date
 structure General=General
 structure IEEEReal=IEEEReal
@@ -361,13 +379,16 @@ structure TextPrimIO=TextPrimIO
 structure Time=Time
 structure Timer=Timer
 structure Vector=Vector
+structure VectorSlice=VectorSlice
 structure Word=Word
 structure Word8=Word8
 structure Word16=Word16
 structure Word32=Word32
 structure Word8Array=Word8Array
+structure Word8ArraySlice=Word8ArraySlice
 structure Word8Array2=Word8Array2
 structure Word8Vector=Word8Vector
+structure Word8VectorSlice=Word8VectorSlice
 structure Word16Array=Word16Array
 structure Word16Array2=Word16Array2
 structure Word16Vector=Word16Vector
@@ -375,6 +396,7 @@ structure Word32Array=Word32Array
 structure Word32Array2=Word32Array2
 structure Word32Vector=Word32Vector
 structure RealVector=RealVector
+structure RealVectorSlice=RealVectorSlice
 structure RealArray=RealArray
 structure RealArray2=RealArray2
 structure SML90=SML90;
@@ -404,46 +426,39 @@ functor ImperativeIO (
 functor PrimIO (
           include sig
             structure A : MONO_ARRAY
+	    structure ArraySlice : MONO_ARRAY_SLICE
             structure V : MONO_VECTOR
+	    structure VectorSlice : MONO_VECTOR_SLICE
           end
-          sharing type A.vector = V.vector
-          sharing type A.elem = V.elem
+          sharing type A.vector = V.vector = VectorSlice.vector
+				  = ArraySlice.vector
+          sharing type A.elem = V.elem = VectorSlice.elem
+				= ArraySlice.elem
+          sharing type A.array = ArraySlice.array
           val someElem : A.elem
           type pos
           val compare : pos * pos -> order
         ) : PRIM_IO =
   PrimIO (
     structure A = A
+    structure ArraySlice = ArraySlice
     structure V = V
+    structure VectorSlice = VectorSlice
     val someElem = someElem
     type pos = pos
     val compare = compare);
 
 functor StreamIO (
-          structure PrimIO : PRIM_IO
-          structure Vector : MONO_VECTOR
-          structure Array: MONO_ARRAY
-          val someElem : PrimIO.elem
-          sharing type PrimIO.vector = Array.vector = Vector.vector
-          sharing type PrimIO.array = Array.array
-          sharing type Array.elem = PrimIO.elem = Vector.elem
-        ) : STREAM_IO =
+    structure PrimIO : PRIM_IO
+    structure Vector : MONO_VECTOR
+    structure Array: MONO_ARRAY
+    val someElem : PrimIO.elem
+    sharing type PrimIO.vector = Array.vector = Vector.vector
+    sharing type PrimIO.array = Array.array
+    sharing type Array.elem = PrimIO.elem = Vector.elem
+) : STREAM_IO =
   StreamIO (
     structure PrimIO = PrimIO
     structure Vector = Vector
     structure Array = Array
     val someElem = someElem);
-
-
-
-
-
-
-
-
-
-
-
-
-
-

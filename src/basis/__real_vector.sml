@@ -55,6 +55,7 @@
 
 
 require "mono_vector";
+require "_vector_ops";
 require "__pre_real";
 
 structure RealVector :> MONO_VECTOR where type elem = PreReal.real =
@@ -76,6 +77,18 @@ structure RealVector :> MONO_VECTOR where type elem = PreReal.real =
 
     val length = F.length
     val sub = F.sub
+
+    local
+	structure Vec =
+	  struct
+	    type 'a elt = elem
+	    type 'a seq = vector
+	    val length = length
+	    val tabulate = tabulate
+	    val unsafeSub = sub
+	  end
+	structure Ops = VectorOps (Vec)
+    in open Ops end
 
     fun check_slice (vector,i,SOME j) =
       if i < 0 orelse j < 0 orelse i + j > length vector
@@ -123,24 +136,6 @@ structure RealVector :> MONO_VECTOR where type elem = PreReal.real =
           copyAll(0,l); f
         end
 
-
-    fun appi f (vector, i, j) =
-      let
-	val l = length vector
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun iterate n =
-	  if n >= l then
-	    ()
-	  else
-	    (ignore(f(n, sub(vector, n)));
-	     iterate(n+1))
-      in
-	iterate i
-      end
-
-
     fun app f vector =
       let
 	val l = length vector
@@ -179,33 +174,6 @@ structure RealVector :> MONO_VECTOR where type elem = PreReal.real =
 	reduce(l-1, b)
       end
 
-    fun foldli f b (vector, i, j) =
-      let
-	val l = length vector
-	val len = check_slice(vector,i,j)
-
-	fun reduce(n, x) =
-	  if n = i+len then
-	    x
-	  else
-	    reduce(n+1, f(n, sub(vector, n), x))
-      in
-	reduce(i, b)
-      end
-
-    fun foldri f b (vector, i, j) =
-      let
-	val len = check_slice(vector,i,j)
-
-	fun reduce(n, x) =
-	  if n < i then
-	    x
-	  else
-	    reduce(n-1, f(n, sub(vector, n), x))
-      in
-	reduce(i+len-1, b)
-      end
-
     fun map f v =
       let
         val l = length v
@@ -213,13 +181,5 @@ structure RealVector :> MONO_VECTOR where type elem = PreReal.real =
       in
         tabulate (l, f')
       end
-
-   fun mapi f (v, s, l) =
-     let 
-       val l' = check_slice (v, s, l)
-       fun f' i = f (i+s, sub(v, i+s))
-     in
-       tabulate (l', f')
-     end
 
   end

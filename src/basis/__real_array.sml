@@ -57,10 +57,17 @@
  *)
 
 require "mono_array";
+require "_array_ops";
 require "__pre_real";
 require "__real_vector";
+require "__real_vector_slice";
 
-structure RealArray : MONO_ARRAY where type elem = PreReal.real =
+structure RealArray :> MONO_ARRAY  (* OPTIONAL *)
+			   where type vector = RealVector.vector
+			   where type elem = real
+		 (* FIXME: floatarray is exposed for better printing.
+		    That may not be standard compatible. *)
+		 where type array = MLWorks.Internal.FloatArray.floatarray =
   struct
     type elem = PreReal.real
     type vector = RealVector.vector
@@ -72,20 +79,46 @@ structure RealArray : MONO_ARRAY where type elem = PreReal.real =
     fun check_size n =
       if n < 0 orelse n > maxLen then raise Size else n
 
-
     fun array (i, e) = F.array (check_size i, e)
     fun tabulate (i, f) = F.tabulate (check_size i,f)
 
-    (* uses toplevel List.length which is overridden afterwards *)
-
-    fun fromList [] = F.array(0,0.0)
-      | fromList l =
-      if length l> maxLen then raise Size else F.from_list l
-      
+    val llength = length (* remember toplevel List.length *)
     val length = F.length
     val sub = F.sub
     val update = F.update
     val cast = MLWorks.Internal.Value.cast
+
+    local
+	structure V = RealVector
+	structure VS = RealVectorSlice
+	structure Arr =
+	  struct
+	    type 'a array = array
+	    val length = length
+	    val tabulate = tabulate
+	    val array = array
+	    val unsafeSub = sub
+	    val unsafeUpdate = update
+	  end
+	structure Vec =
+	  struct
+	    val tabulate = V.tabulate
+	    val unsafeSub = V.sub
+	  end
+	structure Ops = ArrayOps (type 'a elt = elem
+				  type 'a vector = vector
+				  structure Arr = Arr
+				  structure Vec = Vec
+				  structure VecSlice = struct
+				      type 'a slice = VS.slice
+				      val base = VS.base
+				    end)
+    in open Ops end
+
+
+    fun fromList [] = F.array(0,0.0)
+      | fromList l =
+      if llength l> maxLen then raise Size else F.from_list l
 
     fun check_slice (array,i,SOME j) =
       if i < 0 orelse j < 0 orelse i + j > length array
@@ -115,28 +148,17 @@ structure RealArray : MONO_ARRAY where type elem = PreReal.real =
         cast(F.tabulate(len, fn n => sub (array, n+i)))
       end
 
-
-    
-    fun copy { src, si, len, dst, di } =
+    fun copy { src, dst, di } =
       let
-        val srcLen = length src
-        val l = case len
-                  of SOME l => l
-                   | NONE => srcLen - si
+        val l = length src
       in
-        if si >= 0 
-           andalso l >= 0 
-           andalso si + l <= srcLen
-           andalso di >= 0
-           andalso di + l <= length dst
-          then F.copy(src, si, si+l, dst, di)
+        if di >= 0 andalso di + l <= length dst
+          then F.copy(src, 0, l, dst, di)
         else raise Subscript
       end
 
-
-
-    fun copyVec {src, si, len, dst, di} =
-         copy {src=cast src,si=si,len=len,dst=dst,di=di}
+    fun copyVec {src, dst, di} =
+         copy {src=cast src, dst=dst, di=di}
 
     (* this is based on the assumption that real vectors are
      * implemented as floatarrays too.
@@ -155,20 +177,6 @@ structure RealArray : MONO_ARRAY where type elem = PreReal.real =
 	     iterate(n+1))
       in
 	iterate 0
-      end
-
-    fun appi f (array, i, j) =
-      let
-        val len = check_slice(array,i,j)
-
-	fun iterate' n =
-	  if n >= i+ len then
-	    ()
-	  else
-	    (ignore(f (n, sub (array, n)));
-	     iterate'(n+1))
-      in
-	iterate' i
       end
 
     fun foldl f b array =
@@ -195,33 +203,6 @@ structure RealArray : MONO_ARRAY where type elem = PreReal.real =
 	reduce(l-1, b)
       end
 
-    fun foldli f b (array, i, j) =
-      let
-	val l = length array
-	val len = check_slice(array,i,j)
-
-	fun reduce (n, x) =
-	  if n = i+len then
-	    x
-	  else
-	    reduce(n+1, f(n, sub(array, n), x))
-      in
-	reduce(i, b)
-      end
-
-    fun foldri f b (array, i, j) =
-      let
-	val len = check_slice(array,i,j)
-
-	fun reduce (n, x) =
-	  if n < i then
-	    x
-	  else
-	    reduce(n-1, f(n, sub(array, n), x))
-      in
-	reduce(i+len-1, b)
-      end
-
     fun modify f array =
       let
 	val l = length array
@@ -235,18 +216,10 @@ structure RealArray : MONO_ARRAY where type elem = PreReal.real =
 	iterate 0
       end
 
-    fun modifyi f (array, i, j) =
-      let
-	val len = check_slice(array,i,j)
-
-	fun iterate n =
-	  if n = i+len then
-	    ()
-	  else
-	    (update(array, n, f(n, sub(array, n)));
-	     iterate(n+1))
-      in
-	iterate i
-      end
+    (* FIXME: This is written out manually because ArrayOps.modifyi is
+       miscompiled.  Remove this when compiler bug is fixed. *)
+    fun modifyi f array =
+      appi (fn (i, x) => update (array, i, f (i, x)))
+	   array
 
   end

@@ -86,6 +86,8 @@
 
 require "mono_array";
 require "__char_vector";
+require "__char_vector_slice";
+require "_array_ops";
 
 structure CharArray : MONO_ARRAY =
   struct
@@ -112,14 +114,42 @@ structure CharArray : MONO_ARRAY =
     fun tabulate (i : int, f : int -> elem) : array =
       A (MLWorks.Internal.ByteArray.tabulate (check_size i,cast f))
 
-    (* uses toplevel List.length which is overridden afterwords *)
-    fun fromList (l : elem list) : array =
-      (ignore(check_size (length l));
-       A (MLWorks.Internal.ByteArray.arrayoflist (cast l)))
+    val llength = length (* remember toplevel List.length *)
+    fun length (A ba) : int = MLWorks.Internal.ByteArray.length ba
+    fun sub (A ba, i:int) : elem = cast(MLWorks.Internal.ByteArray.sub (ba, i))
+    fun update (A ba, i:int, x:elem) : unit =
+	MLWorks.Internal.ByteArray.update (ba, i, cast x)
 
-    val length   : array -> int                     = cast(MLWorks.Internal.ByteArray.length)
-    val sub      : (array * int) -> elem            = cast(MLWorks.Internal.ByteArray.sub)
-    val update   : (array * int * elem) -> unit     = cast(MLWorks.Internal.ByteArray.update)
+    local
+	structure V = CharVector
+	structure VS = CharVectorSlice
+	structure Arr =
+	  struct
+	    type 'a array = array
+	    val length = length
+	    val tabulate = tabulate
+	    val array = array
+	    val unsafeSub = sub
+	    val unsafeUpdate = update
+	  end
+	structure Vec =
+	  struct
+	    val tabulate = V.tabulate
+	    val unsafeSub = V.sub
+	  end
+	structure Ops = ArrayOps (type 'a elt = elem
+				  type 'a vector = vector
+				  structure Arr = Arr
+				  structure Vec = Vec
+				  structure VecSlice = struct
+				      type 'a slice = VS.slice
+				      val base = VS.base
+				    end)
+    in open Ops end
+
+    fun fromList (l : elem list) : array =
+      (ignore(check_size (llength l));
+       A (MLWorks.Internal.ByteArray.arrayoflist (cast l)))
 
     val extract  : (array * int * int option ) -> vector =
       fn (A a,i,len) =>
@@ -130,20 +160,16 @@ structure CharArray : MONO_ARRAY =
           | NONE => MLWorks.Internal.ByteArray.length a - i
       in 
         if i >= 0 andalso len >= 0 andalso i + len <= MLWorks.Internal.ByteArray.length a
-          then cast(MLWorks.Internal.ByteArray.substring (a,i,len))
+          then MLWorks.Internal.ByteArray.substring (a,i,len)
         else raise Subscript
       end
 
-    
-    fun copy { src=A(src_ba), si, len, dst=A(dst_ba), di } =
+    fun copy { src=A(src_ba), dst=A(dst_ba), di } =
       let
-        val l = case len of
-          SOME l => l
-        | NONE => MLWorks.Internal.ByteArray.length src_ba - si
+        val l = MLWorks.Internal.ByteArray.length src_ba
       in
-        if si >= 0 andalso l >= 0 andalso si + l <= MLWorks.Internal.ByteArray.length src_ba
-          andalso di >= 0 andalso di + l <= MLWorks.Internal.ByteArray.length dst_ba
-          then MLWorks.Internal.ByteArray.copy(src_ba, si, si+l, dst_ba, di)
+        if di >= 0 andalso di + l <= MLWorks.Internal.ByteArray.length dst_ba
+          then MLWorks.Internal.ByteArray.copy(src_ba, 0, l, dst_ba, di)
         else raise Subscript
       end
 
@@ -173,15 +199,8 @@ structure CharArray : MONO_ARRAY =
           end
       end
 
-    fun copyVec {src, si, len, dst=A(dst_ba), di} =
-      let
-        val len =
-          case len of
-            SOME l => l
-          | _ => CharVector.length src - si
-      in
-        copyv_ba(src, si, len, dst_ba, di)
-      end
+    fun copyVec {src, dst=A(dst_ba), di} =
+      copyv_ba (src, 0, CharVector.length src, dst_ba, di)
 
     fun app f vector =
       let
@@ -194,22 +213,6 @@ structure CharArray : MONO_ARRAY =
 	     iterate(n+1))
       in
 	iterate 0
-      end
-
-    fun appi f (array, i, j) =
-      let
-	val l = length array
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun iterate' n =
-	  if n >= len then
-	    ()
-	  else
-	    (ignore(f (n, sub (array, n)));
-	     iterate'(n+1))
-      in
-	iterate' i
       end
 
     fun foldl f b array =
@@ -236,36 +239,6 @@ structure CharArray : MONO_ARRAY =
 	reduce(l-1, b)
       end
 
-    fun foldli f b (array, i, j) =
-      let
-	val l = length array
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun reduce (n, x) =
-	  if n >= l then
-	    x
-	  else
-	    reduce(n+1, f(n, sub(array, n), x))
-      in
-	reduce(i, b)
-      end
-
-    fun foldri f b (array, i, j) =
-      let
-	val l = length array
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun reduce (n, x) =
-	  if n < i then
-	    x
-	  else
-	    reduce(n-1, f(n, sub(array, n), x))
-      in
-	reduce(len-1, b)
-      end
-
     fun modify f array =
       let
 	val l = length array
@@ -277,22 +250,6 @@ structure CharArray : MONO_ARRAY =
 	     iterate(n+1))
       in
 	iterate 0
-      end
-
-    fun modifyi f (array, i, j) =
-      let
-	val l = length array
-	val len = case j of
-	  SOME len => i+len
-	| NONE => l
-	fun iterate n =
-	  if n >= l then
-	    ()
-	  else
-	    (update(array, n, f(n, sub(array, n)));
-	     iterate(n+1))
-      in
-	iterate i
       end
 
   end (* structure CharArray *)
